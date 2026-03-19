@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: kozmik-uyum-api
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: APP_TOKEN
+        value: kozmik-secret-2025
+      - key: NODE_ENV
+        value: production
