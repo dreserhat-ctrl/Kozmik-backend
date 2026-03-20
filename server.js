@@ -21,7 +21,21 @@ function auth(req, res, next) {
 }
 
 // ── HEALTH CHECK ────────────────────────────────
-app.get("/", (req, res) => res.json({ status: "ok", service: "Kozmik Uyum API" }));
+const path = require("path");
+const fs   = require("fs");
+
+// Ana uygulama — HTML'i sun
+app.get("/", (req, res) => {
+  const htmlPath = path.join(__dirname, "index.html");
+  if (fs.existsSync(htmlPath)) {
+    res.sendFile(htmlPath);
+  } else {
+    res.json({ status: "ok", service: "Kozmik Uyum API" });
+  }
+});
+
+// Health check
+app.get("/health", (req, res) => res.json({ status: "ok", service: "Kozmik Uyum API" }));
 
 // ── CLAUDE API PROXY ─────────────────────────────
 app.post("/api/claude", auth, async (req, res) => {
