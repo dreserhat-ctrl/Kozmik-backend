@@ -1581,6 +1581,10 @@ function render(loc, ai, meta) {
 
   // GH1/GH2 foto güncellemesi yukarıda yapıldı
 
+  var astroTip = cp2.i.includes(sun2) ? "Üçgen (120°) — uyumlu akış, doğal anlayış" :
+                 cp2.z.includes(sun2) ? "Kare (90°) — güçlü gerilim ve dönüştürücü büyüme" :
+                 "Sekstil (60°) — fırsatlar ve dikkatli yaklaşım gerektiren ilişki";
+
   // ─── TAB 0: UYUM ───
   var auraMain = (ai&&ai.spir) ? ai.spir :
     ac1.r + " (Kova) ile " + ac2.r + " (" + sun2 + ") auralarının buluşması; " +
@@ -1920,9 +1924,6 @@ function render(loc, ai, meta) {
   safe("s1-pchips","html",buildPlanetChips(loc.cd1));
   safe("s2-pchips","html",buildPlanetChips(loc.cd2));
   var cp2 = COMPAT["Kova"]||{i:[],z:[]};
-  var astroTip = cp2.i.includes(sun2) ? "Üçgen (120°) — uyumlu akış, doğal anlayış" :
-                 cp2.z.includes(sun2) ? "Kare (90°) — güçlü gerilim ve dönüştürücü büyüme" :
-                 "Sekstil (60°) — fırsatlar ve dikkatli yaklaşım gerektiren ilişki";
   var haritaYorum = (ai&&ai.harita_yorum) ? ai.harita_yorum :
     "Kova–"+sun2+" açısal ilişkisi "+astroTip+" olarak şekilleniyor. Bu açı, iki kişinin enerji alanlarının birbirini nasıl etkilediğini ve hangi koşullarda rezonans kurduğunu belirliyor. Kova'nın Uranüs yönetimli özgün enerjisi, "+sun2+"'ın temel özelliğiyle buluştuğunda hem tamamlayıcı hem zorlayıcı bir dinamik doğabilir. Sinastride güçlü noktalar: Venüs–Mars teması tutku ve çekim ekseninde, Güneş–Ay dinamiği kimlik ve duygu arasındaki köprüde şekilleniyor. Bu iki haritanın birbirini en çok etkilediği alan ise iletişim ve duygusal güvenlik zeminidir — bu noktayı güçlü tutmak ilişkinin uzun vadeli potansiyelini açar.";
   safe("r-astro","text", haritaYorum);
