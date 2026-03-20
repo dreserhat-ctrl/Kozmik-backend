@@ -861,7 +861,7 @@ function isWebEnabled() {
 }
 
 // ── BACKEND MODU — kullanıcıdan API key istenmez ──
-var BACKEND_URL = window.location.origin.includes("localhost") || window.location.origin.includes("onrender.com") ? "" : "https://kozmik-backend.onrender.com";
+var BACKEND_URL = (window.location.hostname === "kozmik-backend.onrender.com" || window.location.hostname === "localhost") ? "" : "https://kozmik-backend.onrender.com";
 var APP_TOKEN   = "kozmik-secret-2025";
 
 function saveKey(){}
@@ -1018,7 +1018,11 @@ function safe(id, prop, val) {
   else el[prop] = val;
 }
 
-function dbg(m) { console.log("[KUA]", m); }
+function dbg(m) {
+  console.log("[KUA]", m);
+  var de = document.getElementById("dbgEl");
+  if(de) { de.innerHTML += "<div style='margin:2px 0'>" + String(m) + "</div>"; de.style.display = "block"; de.scrollTop = de.scrollHeight; }
+}
 
 // ═══ JULIAN DAY & GEZEGEN HESAPLARI ══════════════
 function julianDay(year, month, day, hour) {
@@ -1180,7 +1184,9 @@ async function analyze() {
     return;
   }
   err.style.display = "none"; err.textContent = "";
-  var dbgEl=document.getElementById("dbgEl"); if(dbgEl){dbgEl.innerHTML="▶ Analiz başladı<br>";dbgEl.style.display="block";}
+  var dbgEl=document.getElementById("dbgEl"); if(dbgEl){dbgEl.innerHTML="";dbgEl.style.display="block";}
+  dbg("▶ Analiz başladı — backend: "+BACKEND_URL);
+  dbg("_hasKey: "+_hasKey);
 
   var _key = "backend";
   var _hasKey = true;
@@ -1410,208 +1416,67 @@ async function analyze() {
   if(_hasKey) {
     updStep("Yıldız haritaları okunuyor...");
     try {
-
-      // ── TAM GEZEGENSELLERİ VE AÇILARI HESAPLA ──
       var cd1 = loc.cd1, cd2 = loc.cd2;
       var bp1 = loc.birthP1, bp2 = loc.birthP2;
-
-      // Ham dereceleri al
       var r1 = bp1.rawLons, r2 = bp2.rawLons;
 
-      // Açı hesap fonksiyonu
-      function calcAspect(lon1, lon2) {
-        var diff = Math.abs(lon1 - lon2) % 360;
-        if (diff > 180) diff = 360 - diff;
-        if (diff <= 8)   return "Kavuşum(0°)";
-        if (Math.abs(diff-60)<=6)  return "Sekstil(60°)";
-        if (Math.abs(diff-90)<=7)  return "Kare(90°)";
-        if (Math.abs(diff-120)<=7) return "Trigon(120°)";
-        if (Math.abs(diff-150)<=5) return "Yod(150°)";
-        if (Math.abs(diff-180)<=8) return "Karşıtlık(180°)";
-        return null;
-      }
+      // Açı hesapla
+      function calcAsp(a,b){var d=Math.abs(a-b)%360;if(d>180)d=360-d;if(d<=8)return"Kavuşum";if(Math.abs(d-60)<=6)return"Sekstil";if(Math.abs(d-90)<=7)return"Kare";if(Math.abs(d-120)<=7)return"Trigon";if(Math.abs(d-180)<=8)return"Karşıtlık";return null;}
+      function natalAsps(r){var ps=[["Güneş","sun"],["Ay","moon"],["Merkür","mercury"],["Venüs","venus"],["Mars","mars"],["Jüpiter","jupiter"],["Satürn","saturn"]];var res=[];for(var i=0;i<ps.length;i++)for(var j=i+1;j<ps.length;j++){var a=calcAsp(r[ps[i][1]],r[ps[j][1]]);if(a)res.push(ps[i][0]+"-"+ps[j][0]+":"+a);}return res.join(", ")||"Belirgin açı yok";}
+      function synAsps(r1,r2){var p1=[["Güneş","sun"],["Ay","moon"],["Venüs","venus"],["Mars","mars"],["Merkür","mercury"]];var p2=[["Güneş","sun"],["Ay","moon"],["Venüs","venus"],["Mars","mars"]];var res=[];p1.forEach(function(a){p2.forEach(function(b){var asp=calcAsp(r1[a[1]],r2[b[1]]);if(asp)res.push("K1-"+a[0]+"→K2-"+b[0]+":"+asp);});});return res.join(" | ")||"Hesaplanamadı";}
 
-      // Natal açılar — kişi 1 kendi içi
-      function natalAspects(r, label) {
-        var planets = [
-          ["Güneş","sun"],["Ay","moon"],["Merkür","mercury"],
-          ["Venüs","venus"],["Mars","mars"],["Jüpiter","jupiter"],["Satürn","saturn"]
-        ];
-        var found = [];
-        for (var i=0; i<planets.length; i++) {
-          for (var j=i+1; j<planets.length; j++) {
-            var asp = calcAspect(r[planets[i][1]], r[planets[j][1]]);
-            if (asp) found.push(planets[i][0]+"-"+planets[j][0]+":"+asp);
-          }
-        }
-        return found.join(", ") || "Belirgin açı yok";
-      }
+      var natal1=natalAsps(r1), natal2=natalAsps(r2), syn=synAsps(r1,r2);
+      dbg("K1 açılar: "+natal1);
+      dbg("K2 açılar: "+natal2);
+      dbg("Sinastri: "+syn);
 
-      // Sinastri açıları — iki harita arası
-      function synastriAspects(r1, r2) {
-        var p1 = [["Güneş","sun"],["Ay","moon"],["Venüs","venus"],["Mars","mars"],["Merkür","mercury"],["Jüpiter","jupiter"],["Satürn","saturn"]];
-        var p2 = [["Güneş","sun"],["Ay","moon"],["Venüs","venus"],["Mars","mars"],["Merkür","mercury"]];
-        var found = [];
-        p1.forEach(function(a) {
-          p2.forEach(function(b) {
-            var asp = calcAspect(r1[a[1]], r2[b[1]]);
-            if (asp) found.push("K1-"+a[0]+"→K2-"+b[0]+":"+asp);
-          });
-        });
-        return found.join(" | ") || "Belirgin sinastri açısı hesaplanamadı";
-      }
+      var p1full = "KİŞİ 1: "+(k1sun||"Kova")+" güneş, "+(k1rising||"Oğlak")+" yükselen, Ay:"+cd1.moon+", Venüs:"+cd1.venus+", Mars:"+cd1.mars+", Merkür:"+cd1.mercury+", Jüpiter:"+cd1.jupiter+", Satürn:"+cd1.saturn+" | Natal açılar: "+natal1;
+      var p2full = "KİŞİ 2: "+sun2+" güneş, "+(ri2||"bilinmiyor")+" yükselen, Ay:"+cd2.moon+", Venüs:"+cd2.venus+", Mars:"+cd2.mars+", Merkür:"+cd2.mercury+", Jüpiter:"+cd2.jupiter+", Satürn:"+cd2.saturn+" | Natal açılar: "+natal2;
+      var p1SaatTxt = hour1!==12?(Math.floor(hour1)+":"+String(Math.round((hour1%1)*60)).padStart(2,"0")):"Bilinmiyor";
+      var p2SaatTxt = hour2!==12?(Math.floor(hour2)+":"+String(Math.round((hour2%1)*60)).padStart(2,"0")):"Bilinmiyor";
+      p1full += " | Doğum: "+(k1d||10)+" "+(MONTHS[(k1m||2)-1]||"Şubat")+" "+(k1y||1967)+" Saat:"+p1SaatTxt+(loc1?" Şehir:"+loc1:"");
+      p2full += " | Doğum: "+d2+" "+MONTHS[+m2-1]+" "+(y2||"")+" Saat:"+p2SaatTxt+(loc2?" Şehir:"+loc2:"");
 
-      var natal1 = natalAspects(r1, "K1");
-      var natal2 = natalAspects(r2, "K2");
-      var synAspects = synastriAspects(r1, r2);
+      var prompt = "SADECE JSON döndür. Başka hiçbir şey yazma.\n\n"+p1full+"\n"+p2full+"\nSİNASTRİ AÇILARI: "+syn+"\n\n"+
+        "Her kişiyi SADECE bu haritanın gezegenlerine göre analiz et. Genel burç tanımı kullanma.\n\n"+
+        "JSON formatı (tüm alanlar Türkçe, her alan min 4 cümle):\n"+
+        "{\"a1\":{\"aciklama\":\"[K1 tam harita analizi — gezegen pozisyonları ve natal açılara göre]\",\"iliski\":\"[K1 Venüs "+cd1.venus+" ve Mars "+cd1.mars+" aşk stili]\",\"gucler\":\"[K1 güçlü natal açılar ve kazandırdıkları]\",\"zorluklar\":\"[K1 zorlu açılar ve büyüme alanları]\"},"+
+        "\"a2\":{\"aciklama\":\"[K2 tam harita analizi — "+sun2+" güneş, Ay "+cd2.moon+", Venüs "+cd2.venus+", Mars "+cd2.mars+" — gezegen açılarına göre]\",\"iliski\":\"[K2 Venüs "+cd2.venus+" ve Mars "+cd2.mars+" aşk ve arzu stili]\",\"gucler\":\"[K2 güçlü natal açılar]\",\"zorluklar\":\"[K2 zorlu açılar]\"},"+
+        "\"uyum\":{\"ozet\":\"[İki haritanın sinastri özeti — en önemli "+syn.split(" | ")[0]+" teması dahil]\",\"guclu\":\"[En uyumlu 2-3 sinastri açısı ve anlamları]\",\"zorluk\":\"[Zorlayıcı açılar ve dikkat edilmesi gerekenler]\",\"tavsiye\":\"[Bu iki haritaya özgü ilişki tavsiyeleri]\"},"+
+        "\"spir\":\"[İki haritanın spiritüel uyumu]\",\"uyari\":\"[Kritik risk noktaları]\",\"ozet\":\"[Genel özet]\"}";
 
-      // Tam harita metinleri
-      var p1SaatTxt = hour1!==12 ? (Math.floor(hour1)+":"+String(Math.round((hour1%1)*60)).padStart(2,"0")) : "Bilinmiyor";
-      var p2SaatTxt = hour2!==12 ? (Math.floor(hour2)+":"+String(Math.round((hour2%1)*60)).padStart(2,"0")) : "Bilinmiyor";
-      var p1full = "KİŞİ 1 DOĞUM HARİTASI:\n"+
-        "Güneş: "+(k1sun||"Kova")+" | Yükselen: "+(k1rising||"Oğlak")+" | Ay: "+cd1.moon+"\n"+
-        "Merkür: "+cd1.mercury+" | Venüs: "+cd1.venus+" | Mars: "+cd1.mars+"\n"+
-        "Jüpiter: "+cd1.jupiter+" | Satürn: "+cd1.saturn+"\n"+
-        "Uranüs: "+bp1.uranus+" | Neptün: "+bp1.neptune+"\n"+
-        "Doğum: "+(k1d||10)+" "+MONTHS[(k1m||2)-1]+" "+(k1y||1967)+" | Saat: "+p1SaatTxt+(loc1?" | Şehir: "+loc1:"")+"\n"+
-        "Natal açılar: "+natal1;
-
-      var p2full = "KİŞİ 2 DOĞUM HARİTASI:\n"+
-        "Güneş: "+sun2+" | Yükselen: "+(ri2||"Bilinmiyor")+" | Ay: "+cd2.moon+"\n"+
-        "Merkür: "+cd2.mercury+" | Venüs: "+cd2.venus+" | Mars: "+cd2.mars+"\n"+
-        "Jüpiter: "+cd2.jupiter+" | Satürn: "+cd2.saturn+"\n"+
-        "Uranüs: "+bp2.uranus+" | Neptün: "+bp2.neptune+"\n"+
-        "Doğum: "+d2+" "+MONTHS[+m2-1]+" "+(y2||"")+" | Saat: "+p2SaatTxt+(loc2?" | Şehir: "+loc2:"")+"\n"+
-        (nm2&&nm2!=="2. Kişi"?"İsim: "+nm2+"\n":"")+
-        "Natal açılar: "+natal2;
-
-      var synastriText = "SİNASTRİ AÇILARI (İki harita arası):\n"+synAspects;
-
-      var astroPrompt =
-        "SADECE JSON yanıt ver — başka HİÇBİR şey yazma.\n\n"+
-        p1full+"\n\n"+p2full+"\n\n"+synastriText+"\n\n"+
-        "ANALİZ TALİMATLARI — MUTLAKA UYGULA:\n"+
-        "⛔ YASAK: 'Kova enerjiktir', 'İkizler meraklıdır' gibi GEN EL BURÇ TANIMLARI kullanma.\n"+
-        "✅ ZORUNLU: Her cümlede somut gezegen adı ve açı bilgisi olsun.\n"+
-        "   Örnek YERİNE GEÇECEKLERİ:\n"+
-        "   - YANLIŞ: 'Bu kişi duygusal ve empatik' \n"+
-        "   - DOĞRU: 'Ay-Venüs trigonu bu kişiye derin bir şefkat kapasitesi kazandırırken, Merkür-Satürn karesi bu duyguları ifade etmekte zorlanma yaratır'\n"+
-        "\n"+
-        "K1 için şunları analiz et:\n"+
-        "- Natal açıların ("+natal1+") kişiliğe, güçlere ve zorluklara etkisi\n"+
-        "- Venüs "+cd1.venus+" ve Mars "+cd1.mars+" ekseninin aşk ve arzu stiline etkisi\n"+
-        "- Ay "+cd1.moon+" ve Güneş "+(k1sun||"Kova")+" kombinasyonunun duygusal iç dünyaya etkisi\n"+
-        "- Satürn "+cd1.saturn+" ve Jüpiter "+cd1.jupiter+" ekseninin karmik derslere etkisi\n"+
-        "\n"+
-        "K2 için şunları analiz et:\n"+
-        "- Natal açıların ("+natal2+") K2'ye özgün etkisi\n"+
-        "- Venüs "+cd2.venus+" ve Mars "+cd2.mars+" ekseninin aşk stili ve arzusuna etkisi\n"+
-        "- Ay "+cd2.moon+" konumunun duygusal ihtiyaçlarına etkisi\n"+
-        "- Satürn "+cd2.saturn+" konumunun büyüme alanlarına etkisi\n"+
-        "\n"+
-        "SİNASTRİ için şunları analiz et:\n"+
-        "- En güçlü 3 uyum açısı ve bunların ilişkide somut anlamı\n"+
-        "- En zorlayıcı 2 açı ve bunların yaratabileceği gerilimler\n"+
-        "- K1 Venüs "+cd1.venus+" → K2 Mars "+cd2.mars+" dinamiği (tutku ve çekim)\n"+
-        "- K1 Ay "+cd1.moon+" → K2 Ay "+cd2.moon+" dinamiği (duygusal uyum)\n"+
-        "\n"+
-        "Her JSON alanı MİNİMUM 5 cümle. Türkçe. Klişesiz. Somut gezegen atıflarıyla.\n\n"+
-        'SADECE bu JSON formatında yanıt ver:\n'+
-        '{\n'+
-        '"a1":{\n'+
-        '  "renk":"[K1 aura rengi — '+(k1sun||"Kova")+' güneş+Ay '+loc.cd1.moon+'+'+(k1rising||"Oğlak")+' yükselen kombinasyonuna özgü]",\n'+
-        '  "hex":"[#hex kodu]",\n'+
-        '  "enerji":"[K1 enerji özeti — bu üç pozisyonun yarattığı titreşim — 2 cümle]",\n'+
-        '  "aciklama":"[K1 tam harita analizi: '+(k1sun||"Kova")+' güneşi+'+(k1rising||"Oğlak")+' yükselen+'+loc.cd1.moon+' ay kombinasyonu nasıl bir kişilik yaratıyor; natal açıların etkisi dahil — 5-6 cümle, genel burç değil bu haritaya özgü]",\n'+
-        '  "spirituel_seviye":"[K1 spiritüel farkındalık ve ruhsal olgunluk — haritasındaki açılarla bağlantılı — 3-4 cümle]",\n'+
-        '  "chakra_dominant":"[K1 dominant çakra — '+(k1sun||"Kova")+'+'+(k1rising||"Oğlak")+'+'+loc.cd1.moon+' kombinasyonuna göre hangi çakra öne çıkıyor ve neden]",\n'+
-        '  "kisisel_gucler":"[K1 haritasındaki en güçlü natal açıların (varsa) kişiye kazandırdığı somut güçler — 3-4 cümle]",\n'+
-        '  "kisisel_zorluklar":"[K1 haritasındaki zorlu açıların (kare, karşıtlık) yarattığı içsel gerilimler ve büyüme alanları — 3-4 cümle]",\n'+
-        '  "iliski_patern":"[K1 Venüs '+loc.cd1.venus+' ve Mars '+loc.cd1.mars+' pozisyonlarının aşk hayatına ve ilişki dinamiğine özgün etkisi — 4-5 cümle]"\n'+
-        '},\n'+
-        '"a2":{\n'+
-        '  "renk":"[K2 aura rengi — '+sun2+' güneşi+'+(ri2||"bilinmiyor")+' yükselen+'+loc.cd2.moon+' ay kombinasyonuna özgü]",\n'+
-        '  "hex":"[#hex kodu]",\n'+
-        '  "enerji":"[K2 enerji özeti — bu haritanın yarattığı titreşim — 2 cümle]",\n'+
-        '  "aciklama":"[K2 tam harita analizi: '+sun2+' güneşi+'+(ri2||"bilinmiyor")+' yükselen+'+loc.cd2.moon+' ay kombinasyonu nasıl bir kişilik yaratıyor; natal açıların etkisi — 5-6 cümle, bu haritaya özgü]",\n'+
-        '  "spirituel_seviye":"[K2 spiritüel farkındalık — bu haritanın açılarına göre — 3-4 cümle]",\n'+
-        '  "chakra_dominant":"[K2 dominant çakra — '+sun2+'+'+loc.cd2.rising+'+'+loc.cd2.moon+' kombinasyonuna göre]",\n'+
-        '  "astro_derin":"[K2 derin profil: '+sun2+' güneş + '+loc.cd2.moon+' ay + '+loc.cd2.rising+' yükselen + Venüs '+loc.cd2.venus+' + Mars '+loc.cd2.mars+' birlikte nasıl çalışıyor; bu kombinasyonun eşsiz dinamiği — 6-7 cümle]",\n'+
-        '  "gezegen_yorumu":"[K2 Venüs '+loc.cd2.venus+' ve Mars '+loc.cd2.mars+' ve Ay '+loc.cd2.moon+' pozisyonlarının aşk hayatına, arzu biçimine ve duygusal yapıya somut etkisi — 5-6 cümle]",\n'+
-        '  "karma_misyon":"[K2 karmik dersleri — Satürn '+loc.cd2.saturn+' ve Jüpiter '+loc.cd2.jupiter+' pozisyonlarına dayanarak — 4-5 cümle]",\n'+
-        '  "enerji_titresim":"[K2 enerji frekansı ve hangi pratiklerin bu haritaya uygun olduğu — 3-4 cümle]",\n'+
-        '  "chakra_detay":"[K2 için 7 çakranın durumu: bu haritanın ('+sun2+'+'+loc.cd2.moon+'+'+loc.cd2.rising+') her çakraya özgün etkisi — Kök, Sakral, Solar Pleksus, Kalp, Boğaz, Üçüncü Göz, Taç — 8-10 cümle]",\n'+
-        '  "kisisel_gucler":"[K2 natal açılarının kişiye kazandırdığı somut güçler — 3-4 cümle]",\n'+
-        '  "kisisel_zorluklar":"[K2 zorlu açıların yarattığı içsel gerilimler ve büyüme alanları — 3-4 cümle]"\n'+
-        '},\n'+
-        '"uyum":{\n'+
-        '  "genel_skor":"[1-100 arası sayı — sinastri açılarına dayalı]",\n'+
-        '  "sinastri_ozet":"[En kritik sinastri açılarının (verilen açı listesinden) ne anlama geldiği — Kavuşum güç birliği, Kare gerilim, Trigon ahenk, Karşıtlık çekim-itme — 5-6 cümle, somut açılara atıfla]",\n'+
-        '  "guc_noktalari":"[İki haritanın en uyumlu temas noktaları — hangi gezegenler birbirini destekliyor, neden — 4-5 cümle]",\n'+
-        '  "zorluk_noktalari":"[İki haritanın en zorlu gerilim noktaları — hangi kareler/karşıtlıklar var, ne yaratıyor — 4-5 cümle]",\n'+
-        '  "ozgun_dinamik":"[Bu iki haritanın bir araya gelince yarattığı eşsiz enerji — başka hiçbir çiftte olmayan bu kombinasyona özgü dinamik — 5-6 cümle]"\n'+
-        '},\n'+
-        '"spir":"[İki haritanın spiritüel rezonansı — hangi gezegen temasları ruhsal bağı güçlendiriyor — 5-6 cümle]",\n'+
-        '"spir_detay":"[Karmik bağ analizi — Satürn ve Jüpiter sinastri temaslarına dayanarak — 4-5 cümle]",\n'+
-        '"tavsiye":"[Bu özgün harita kombinasyonuna dayalı pratik tavsiyeler — 4-5 cümle]",\n'+
-        '"ozet":"[Bu iki haritanın birlikteliğinin kozmik özeti — gezegen açılarına dayalı — 4-5 cümle]",\n'+
-        '"uyari":"[Bu sinastri haritasının en kritik risk noktaları — hangi açılar uzun vadede sorun yaratabilir — çarpıcı, somut — 4-5 cümle]",\n'+
-        '"harita_yorum":"[İki haritanın en güçlü sinastri bağları somut açılarla: K1 Venüs '+loc.cd1.venus+' – K2 Mars '+loc.cd2.mars+', K1 Ay '+loc.cd1.moon+' – K2 Ay '+loc.cd2.moon+'. Bu açıların aşk ve çekim için somut anlamı — 6-7 cümle]",\n'+
-        '"dinamik":"[İki haritanın günlük ilişki ritmine etkisi: kare açılar gerilim, trigonlar ahenk, kavuşumlar güç birleşimi — somut gezegen çiftleriyle — 5-6 cümle]",\n'+
-        '"taktik":{\n'+
-        '  "strateji":"[K2 haritasına özgü yaklaşım: Venüs '+loc.cd2.venus+' ve Mars '+loc.cd2.mars+' bu kişinin nasıl sevilmek ve etkilenmek istediğini söylüyor — 5-6 cümle]",\n'+
-        '  "iletisim":"[K2 Merkür '+loc.cd2.mercury+' pozisyonuna göre iletişim beklentileri — somut öneriler — 5-6 cümle]",\n'+
-        '  "kacin":"[K2 haritasındaki zorlu açıları tetikleyecek davranışlar — 5-6 cümle]",\n'+
-        '  "randevu":"[K2 Venüs '+loc.cd2.venus+' ve Ay '+loc.cd2.moon+' pozisyonlarına göre ideal ortam ve aktiviteler — 5-6 cümle]",\n'+
-        '  "guclu_tut":"[K1 kendi natal güçlerini ilişkide nasıl kullanmalı — K1 Venüs '+loc.cd1.venus+' ve Mars '+loc.cd1.mars+' ekseni — 4-5 cümle]",\n'+
-        '  "dikkat":"[İki haritanın kare/karşıtlık açılarına dayalı kritik dikkat noktaları — 5-6 cümle]",\n'+
-        '  "uzun_vade":"[Jüpiter ve Satürn temaslarına göre uzun vadeli uyum ve büyüme haritası — 5-6 cümle]",\n'+
-        '  "gunluk":"[Bu hafta için somut adımlar — bugünkü transit haritası ve natal açılarla uyumlu — 5-6 cümle]",\n'+
-        '  "ilk_mesaj":"[K2 Merkür '+loc.cd2.mercury+' ve Venüs '+loc.cd2.venus+' pozisyonlarına göre ilk iletişim tonu — örnek açılış — 3-4 cümle]",\n'+
-        '  "hediye":"[K2 Venüs '+loc.cd2.venus+' ve Ay '+loc.cd2.moon+' pozisyonlarına göre anlamlı jest/hediye fikirleri — 3-4 cümle]"\n'+
-        '},\n'+
-        '"profil":{\n'+
-        '  "oz":"[K2 özü — '+sun2+' güneş + '+loc.cd2.moon+' ay + '+loc.cd2.rising+' yükselen + Venüs '+loc.cd2.venus+' birlikte bu kişinin ruhunu nasıl şekillendiriyor — standart burç değil, bu haritanın özü — 4-5 cümle]",\n'+
-        '  "ic_dunya":"[K2 iç dünyası — Ay '+loc.cd2.moon+' ve Merkür '+loc.cd2.mercury+' bu kişinin duygusal işleme ve iç sesi hakkında ne söylüyor — 4-5 cümle]",\n'+
-        '  "golge_derinlik":"[K2 zorlu natal açılarının gölge boyutu — hangi korkular, hangi savunma mekanizmaları — 4-5 cümle]",\n'+
-        '  "donusum":"[K2 Satürn '+loc.cd2.saturn+' ve Jüpiter '+loc.cd2.jupiter+' pozisyonları bu kişinin büyüme ve dönüşüm haritasını nasıl çiziyor — 4-5 cümle]",\n'+
-        '  "enerji_imzasi":"[K2 haritasının bütününün yarattığı enerji izi — bu kişinin odaya girişte yaydığı frekans — 3-4 cümle]",\n'+
-        '  "iliski_psikolojisi":"[K2 Venüs '+loc.cd2.venus+' + Mars '+loc.cd2.mars+' + Ay '+loc.cd2.moon+' üçlüsünün ilişkideki bağlanma biçimine ve gerçek ihtiyaçlarına somut etkisi — 5-6 cümle]"\n'+
-        '}\n'+
-        '}'
-      dbg("API isteği gönderiliyor — max_tokens:8000");
-      dbg("Prompt: "+astroPrompt.length+" karakter");
-      dbg("K1: Kova/Oğlak Ay:"+loc.cd1.moon+" Venüs:"+loc.cd1.venus+" Mars:"+loc.cd1.mars);
-      dbg("K2: "+sun2+"/"+(ri2||"?")+" Ay:"+loc.cd2.moon+" Venüs:"+loc.cd2.venus+" Mars:"+loc.cd2.mars);
+      dbg("🚀 API çağrısı başlıyor...");
       var aRaw = await apiCall(JSON.stringify({
         model:"claude-sonnet-4-20250514", max_tokens:8000,
-        system:"Sen dünya genelinde ileri düzey pratik doğum haritası yorumcususun. Kuralın şu: Her cümlede mutlaka somut bir gezegen adı ve/veya açı olacak. 'Kova enerjik ve vizyonerdir' gibi genel cümleler kesinlikle kullanmıyorsun. Bunun yerine: 'Güneş-Uranüs kavuşumu bu kişiye sürekli yenilik ihtiyacı ve ani karar değişkenliği üretirken, Satürn-Ay karesi duygusal ifadeyi bastıran bir iç sansür mekanizması yaratıyor' şeklinde yazıyorsun. Sinastri analizinde de somut açılar: 'K1 Venüs Balık – K2 Mars Yay sekstili ortak ruhsal macera arzusu yaratır; ancak K1 Satürn Oğlak – K2 Güneş İkizler karesi sorumluluk vs özgürlük gerilimi doğurur'. Her alan minimum 5 tam cümle. Türkçe. SADECE JSON döndürüyorsun.",
-        messages:[{role:"user",content:astroPrompt}]
+        system:"Sen profesyonel bir astrologsun. Verilen doğum haritası verilerine göre KİŞİYE ÖZEL analiz yapıyorsun. Genel burç tanımları kullanmıyorsun. Her yorumda somut gezegen adı ve açı bilgisi var. SADECE JSON döndürüyorsun.",
+        messages:[{role:"user",content:prompt}]
       }), _key);
-      var aD; try{aD=JSON.parse(aRaw);}catch(e){aD={error:{message:"Parse hatası: "+e.message}};}
-      if(!aD.error) {
-        var aT = (aD.content||[]).map(function(x){return x.text||"";}).join("").trim();
-        dbg("API yanıt uzunluğu: "+aT.length+" karakter");
-        var aS = aT.indexOf("{"), aE = aT.lastIndexOf("}");
-        if(aS>=0&&aE>aS) {
-          try {
-            var parsed = JSON.parse(aT.substring(aS,aE+1));
-            Object.assign(ai, parsed);
-            dbg("AI parse OK — alanlar: "+Object.keys(parsed).join(", "));
-          } catch(pe){
-            dbg("JSON parse hatası: "+pe.message);
-            dbg("Ham yanıt başı: "+aT.substring(0,200));
+
+      dbg("API yanıtı alındı, parse ediliyor...");
+      var aD; try{aD=JSON.parse(aRaw);}catch(e){aD={error:{message:"Ham parse hatası: "+e.message}};}
+      if(!aD.error){
+        var aT=(aD.content||[]).map(function(x){return x.text||"";}).join("").trim();
+        dbg("Yanıt uzunluğu: "+aT.length+" karakter");
+        var aS=aT.indexOf("{"), aE=aT.lastIndexOf("}");
+        if(aS>=0&&aE>aS){
+          try{
+            var parsed=JSON.parse(aT.substring(aS,aE+1));
+            Object.assign(ai,parsed);
+            dbg("✅ Parse OK — alanlar: "+Object.keys(parsed).join(", "));
+          }catch(pe){
+            dbg("❌ JSON parse hatası: "+pe.message);
+            dbg("İlk 300 kar: "+aT.substring(0,300));
           }
-        } else {
-          dbg("JSON sınır bulunamadı — yanıt: "+aT.substring(0,200));
+        }else{
+          dbg("❌ JSON bulunamadı — yanıt: "+aT.substring(0,200));
         }
-      } else {
-        var em = (aD.error&&aD.error.message)||JSON.stringify(aD.error||{});
-        dbg("Astro API err: "+em);
-        err.textContent = "⚠ API: " + em.substring(0,150);
-        err.style.display = "block";
+      }else{
+        var em=(aD.error&&aD.error.message)||JSON.stringify(aD.error);
+        dbg("❌ API hatası: "+em);
+        err.textContent="⚠ "+em.substring(0,200);
+        err.style.display="block";
       }
-    } catch(ae){ dbg("Astro err: "+ae.message); }
+    } catch(ae){ dbg("Genel hata: "+ae.message); }
   }
 
   updStep("Sonuçlar hazırlanıyor...");
@@ -1762,7 +1627,7 @@ function render(loc, ai, meta) {
   if(ai&&ai.spir_detay) safe("r-spir-detay","text",ai.spir_detay);
 
   // Sinastri harita yorumu — derin analiz
-  var haritaYorumTxt = (ai&&ai.harita_yorum) ? ai.harita_yorum :
+  var haritaYorumTxt = (ai&&ai.harita_yorum) ? ai.harita_yorum : (ai&&ai.uyum&&ai.uyum.ozet) ? ai.uyum.ozet :
     (uyumAI && uyumAI.sinastri_ozet) ? uyumAI.sinastri_ozet :
     "Kova–"+sun2+" açısal ilişkisi "+astroTip+" olarak şekilleniyor. Venüs ("+loc.cd1.venus+")–Mars ("+loc.cd2.mars+") "+
     "ve Ay ("+loc.cd1.moon+")–Ay ("+loc.cd2.moon+") temasları bu ilişkinin duygusal dokusunu belirliyor.";
@@ -1770,7 +1635,9 @@ function render(loc, ai, meta) {
     '<div style="font-size:13px;line-height:1.9;color:#111;padding:4px 0">'+haritaYorumTxt+'</div>');
 
   // Güçlü yönler — AI'dan veya hesaplamadan
-  if(uyumAI && uyumAI.guc_noktalari) {
+  if(ai && ai.uyum && ai.uyum.guclu) {
+    safe("r-str","html",'<div class="li">'+ai.uyum.guclu+'</div>');
+  } else if(uyumAI && uyumAI.guc_noktalari) {
     safe("r-str","html",'<div class="li">'+uyumAI.guc_noktalari+'</div>');
   } else {
     var seed = 10*2 + (+d2)*(+m2) + 23;
@@ -1779,7 +1646,9 @@ function render(loc, ai, meta) {
   }
 
   // Zorluklar — AI'dan veya hesaplamadan
-  if(uyumAI && uyumAI.zorluk_noktalari) {
+  if(ai && ai.uyum && ai.uyum.zorluk) {
+    safe("r-cha","html",'<div class="li" style="color:#8b2a00">'+ai.uyum.zorluk+'</div>');
+  } else if(uyumAI && uyumAI.zorluk_noktalari) {
     safe("r-cha","html",'<div class="li" style="color:#8b2a00">'+uyumAI.zorluk_noktalari+'</div>');
   } else {
     var seed2 = 10*2 + (+d2)*(+m2) + 23;
@@ -1814,8 +1683,8 @@ function render(loc, ai, meta) {
   safe("r-uyari","html",
     '<div style="font-size:13px;line-height:1.9;color:#7a2a00;padding:4px 0;border-left:3px solid rgba(220,80,40,.4);padding-left:12px">'+uyariTxt+'</div>');
 
-  safe("r-adv","text",(ai&&ai.tavsiye)?ai.tavsiye:"Bu iki haritanın en uyumlu noktaları olan Merkür ("+loc.cd1.mercury+"-"+loc.cd2.mercury+") iletişim eksenini ve Venüs ("+loc.cd1.venus+"-"+loc.cd2.venus+") güzellik dilini bilinçli besleyin.");
-  safe("r-sum","text",(ai&&ai.ozet)?ai.ozet:(uyumAI&&uyumAI.sinastri_ozet)?uyumAI.sinastri_ozet:"Kova (Güneş)+Oğlak (Yükselen)+"+loc.cd1.moon+" (Ay) ile "+sun2+" (Güneş)+"+(ri2||"Yükselen bilinmiyor")+"+"+loc.cd2.moon+" (Ay) haritaları "+(score>=70?"güçlü bir sinastri rezonansıyla":score>=50?"potansiyel dolu bir dinamikle":"dönüştürücü bir gerilimle")+" buluşuyor.");
+  safe("r-adv","text",(ai&&ai.uyum&&ai.uyum.tavsiye)?ai.uyum.tavsiye:(ai&&ai.tavsiye)?ai.tavsiye:"Bu iki haritanın en uyumlu noktaları olan Merkür ("+loc.cd1.mercury+"-"+loc.cd2.mercury+") iletişim eksenini ve Venüs ("+loc.cd1.venus+"-"+loc.cd2.venus+") güzellik dilini bilinçli besleyin.");
+  safe("r-sum","text",(ai&&ai.ozet)?ai.ozet:(ai&&ai.uyum&&ai.uyum.ozet)?ai.uyum.ozet:(uyumAI&&uyumAI.sinastri_ozet)?uyumAI.sinastri_ozet:"Kova (Güneş)+Oğlak (Yükselen)+"+loc.cd1.moon+" (Ay) ile "+sun2+" (Güneş)+"+(ri2||"Yükselen bilinmiyor")+"+"+loc.cd2.moon+" (Ay) haritaları "+(score>=70?"güçlü bir sinastri rezonansıyla":score>=50?"potansiyel dolu bir dinamikle":"dönüştürücü bir gerilimle")+" buluşuyor.");
 
   // Spiritüel renk uyumu
   if(ai && (ai.spir_renk1||ai.spir_renk2)) {
@@ -2271,9 +2140,9 @@ var KARMA_STATIK={
   astroHtml += secBlok("🪐","GEZEGEN DOKUSU & DUYGUSAL KÖK",gezegenIci,"#2d1b69","rgba(155,127,212,.05)");
   safe("p4-astro","html",astroHtml);
 
-  safe("p4-guclu","text",fp2r.guclu||p2.str||"");
-  safe("p4-gizli","text",fp2r.gizli||p2.shadow||"");
-  safe("p4-iliski","text",fp2r.iliski_stili||p2.attach||p2.love||"");
+  safe("p4-guclu","text",(ai&&ai.a2&&ai.a2.gucler)?ai.a2.gucler:fp2r.guclu||p2.str||"");
+  safe("p4-gizli","text",(ai&&ai.a2&&ai.a2.zorluklar)?ai.a2.zorluklar:fp2r.gizli||p2.shadow||"");
+  safe("p4-iliski","text",(ai&&ai.a2&&ai.a2.iliski)?ai.a2.iliski:fp2r.iliski_stili||p2.attach||p2.love||"");
   var karizmaTxt = pr.enerji_imzasi || fp2r.karizma_notu || (ai&&ai.a2&&ai.a2.aciklama) || ((AURA[sun2]||AURA["Kova"]).r+" enerjisi — "+(AURA[sun2]||AURA["Kova"]).d);
   safe("p4-karizma","text",karizmaTxt||"");
   var karmaTxt = pr.donusum || (ai&&ai.a2&&ai.a2.karma_misyon) || (KARMA_STATIK[sun2]||KARMA_STATIK["Kova"]);
