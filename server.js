@@ -1,3 +1,5 @@
+const path = require("path");
+const fs = require("fs");
 const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
@@ -26,6 +28,13 @@ const fs   = require("fs");
 
 // Ana uygulama — HTML'i sun
 app.get("/", (req, res) => {
+  const htmlPath = path.join(__dirname, "index.html");
+  if (fs.existsSync(htmlPath)) {
+    res.sendFile(htmlPath);
+  } else {
+    res.json({ status: "ok", service: "Kozmik Uyum API" });
+  }
+});
   const htmlPath = path.join(__dirname, "index.html");
   if (fs.existsSync(htmlPath)) {
     res.sendFile(htmlPath);
